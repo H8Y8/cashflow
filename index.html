@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Precision Cashflow | 精準現金流模型</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Font: Noto Sans JP & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 500: '#004ea2', 400: '#1a65b8' },
+                        neutral: { 50: '#eef6ff', 100: '#f0f0f0', 800: '#1a1a1a', 900: '#111111' },
+                        surface: '#ffffff',
+                        alert: '#d32f2f'
+                    },
+                    borderRadius: {
+                        DEFAULT: '0px',
+                        'sm': '0px', 'md': '0px', 'lg': '0px', 'xl': '0px', '2xl': '0px', 'full': '0px'
+                    },
+                    fontFamily: {
+                        sans: ['"Noto Sans JP"', 'Inter', 'sans-serif'],
+                        mono: ['DIN', 'Helvetica Neue', 'monospace'],
+                    },
+                    transitionTimingFunction: {
+                        'precision': 'cubic-bezier(0.19, 1, 0.22, 1)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --space-base: 0.25rem;
+            --duration-base: 0.3s;
+        }
+        
+        body {
+            background-color: #f8f9fa; /* Slight off-white for contrast against pure white cards */
+            color: #111111;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Precision Inputs */
+        .input-precision {
+            border: none;
+            border-bottom: 1px solid #e5e7eb;
+            background: transparent;
+            padding: 0.5rem 0;
+            outline: none;
+            transition: border-color var(--duration-base) cubic-bezier(0.19, 1, 0.22, 1);
+            width: 100%;
+            border-radius: 0px;
+        }
+        .input-precision:focus {
+            border-bottom-color: #004ea2;
+        }
+        
+        /* Precision Buttons */
+        .btn-precision {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1.5rem;
+            border: 1px solid #004ea2;
+            color: #004ea2;
+            background: transparent;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--duration-base) cubic-bezier(0.19, 1, 0.22, 1);
+            border-radius: 0px;
+            font-size: 0.9rem;
+        }
+        .btn-precision:hover {
+            background: #004ea2;
+            color: white;
+        }
+        .btn-precision-primary {
+            background: #004ea2;
+            color: white;
+            border: 1px solid #004ea2;
+        }
+        .btn-precision-primary:hover {
+            background: #002a5c;
+            border-color: #002a5c;
+        }
+        .btn-precision-danger {
+            border-color: #d32f2f;
+            color: #d32f2f;
+        }
+        .btn-precision-danger:hover {
+            background: #d32f2f;
+            color: white;
+        }
+
+        /* Table Styling */
+        .table-cell {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #ccc; 
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #004ea2; 
+        }
+
+        /* Modal Animation */
+        .modal-overlay {
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        .modal-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        .modal-overlay.open .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div class="max-w-[1920px] mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-1 h-6 bg-brand-500"></div>
+                <h1 class="text-xl font-bold tracking-tight text-neutral-900">PRECISION <span class="font-light">CASHFLOW</span></h1>
+            </div>
+            <div class="flex gap-4">
+                <button onclick="app.exportData()" class="text-sm font-mono text-neutral-500 hover:text-brand-500 uppercase tracking-wider flex items-center gap-2">
+                    <i class="ph ph-download-simple"></i> Export
+                </button>
+                <button onclick="document.getElementById('fileInput').click()" class="text-sm font-mono text-neutral-500 hover:text-brand-500 uppercase tracking-wider flex items-center gap-2">
+                    <i class="ph ph-upload-simple"></i> Import
+                </button>
+                <input type="file" id="fileInput" class="hidden" accept=".json" onchange="app.importData(this)">
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <main class="flex-1 max-w-[1920px] mx-auto w-full p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Left Column: Controls & Items (4/12) -->
+        <div class="lg:col-span-4 space-y-8">
+            
+            <!-- Section A: Config -->
+            <section class="bg-white p-6 border border-gray-200">
+                <h2 class="text-lg font-medium mb-6 flex items-center gap-2">
+                    <i class="ph ph-sliders-horizontal"></i>
+                    模型設定
+                </h2>
+                <div class="grid grid-cols-1 gap-6">
+                    <div class="relative group">
+                        <label class="block text-xs font-mono text-gray-500 uppercase mb-1">起始現金 (Start Cash)</label>
+                        <input type="number" id="startCash" class="input-precision text-lg font-mono" value="100000">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="relative">
+                            <label class="block text-xs font-mono text-gray-500 uppercase mb-1">起始月份 (YYYY-MM)</label>
+                            <input type="month" id="startMonth" class="input-precision font-mono">
+                        </div>
+                        <div class="relative">
+                            <label class="block text-xs font-mono text-gray-500 uppercase mb-1">預測月數 (Months)</label>
+                            <input type="number" id="predictionMonths" class="input-precision font-mono" value="12" min="1" max="60">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section B: Items List -->
+            <section class="bg-white border border-gray-200 flex flex-col h-[600px] lg:h-[calc(100vh-24rem)]">
+                <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                    <h2 class="text-lg font-medium flex items-center gap-2">
+                        <i class="ph ph-list-dashes"></i>
+                        收支項目
+                    </h2>
+                    <button onclick="app.openModal()" class="btn-precision btn-precision-primary text-xs py-2 px-3">
+                        <i class="ph ph-plus mr-1"></i> 新增
+                    </button>
+                </div>
+                
+                <!-- Filter -->
+                <div class="p-3 border-b border-gray-200">
+                    <input type="text" id="filterInput" placeholder="搜尋項目或標籤..." class="input-precision text-sm" onkeyup="app.renderItems()">
+                </div>
+
+                <!-- Items Container -->
+                <div class="overflow-y-auto flex-1 p-0" id="itemsList">
+                    <!-- Items injected by JS -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Right Column: Visualization & Analysis (8/12) -->
+        <div class="lg:col-span-8 space-y-8 flex flex-col">
+            
+            <!-- Insight Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white p-5 border border-gray-200 relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i class="ph ph-trend-up text-4xl"></i>
+                    </div>
+                    <h3 class="text-xs font-mono text-gray-500 uppercase mb-2">本月預估淨流</h3>
+                    <div class="text-2xl font-bold font-mono tracking-tight" id="insightNetFlow">--</div>
+                    <div class="text-xs text-gray-400 mt-2" id="insightNetFlowSub">vs 上月 --</div>
+                </div>
+                <div class="bg-white p-5 border border-gray-200 relative overflow-hidden group">
+                     <div class="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i class="ph ph-wallet text-4xl"></i>
+                    </div>
+                    <h3 class="text-xs font-mono text-gray-500 uppercase mb-2">期末預估餘額</h3>
+                    <div class="text-2xl font-bold font-mono tracking-tight text-brand-500" id="insightEndBalance">--</div>
+                    <div class="text-xs text-gray-400 mt-2">預測期結束</div>
+                </div>
+                <div class="bg-white p-5 border border-gray-200 relative overflow-hidden group">
+                     <div class="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i class="ph ph-warning-circle text-4xl"></i>
+                    </div>
+                    <h3 class="text-xs font-mono text-gray-500 uppercase mb-2">風險評估</h3>
+                    <div class="text-sm font-medium leading-relaxed" id="insightRisk">
+                        計算中...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization: Chart -->
+            <div class="bg-white p-6 border border-gray-200 relative">
+                <h2 class="text-lg font-medium mb-4 flex items-center gap-2">
+                    <i class="ph ph-chart-line-up"></i>
+                    現金水位預測
+                </h2>
+                <div class="w-full h-64 relative" id="chartContainer">
+                    <svg id="cashflowChart" class="w-full h-full overflow-visible"></svg>
+                    <!-- Tooltip -->
+                    <div id="chartTooltip" class="absolute pointer-events-none bg-neutral-900 text-white text-xs p-2 z-10 hidden font-mono"></div>
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div class="bg-white border border-gray-200 flex-1 overflow-hidden flex flex-col">
+                <div class="p-4 border-b border-gray-200">
+                    <h2 class="text-lg font-medium flex items-center gap-2">
+                        <i class="ph ph-table"></i>
+                        月度明細
+                    </h2>
+                </div>
+                <div class="overflow-auto flex-1">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead class="bg-gray-50 text-xs font-mono uppercase text-gray-500 sticky top-0 z-10">
+                            <tr>
+                                <th class="p-3 border-b border-gray-200 font-medium">月份</th>
+                                <th class="p-3 border-b border-gray-200 font-medium text-right">收入 (+)</th>
+                                <th class="p-3 border-b border-gray-200 font-medium text-right">支出 (-)</th>
+                                <th class="p-3 border-b border-gray-200 font-medium text-right">淨現金流</th>
+                                <th class="p-3 border-b border-gray-200 font-medium text-right">期末餘額</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody" class="font-mono">
+                            <!-- Rows injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Modal for Edit/Add Item -->
+    <div id="itemModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/80 backdrop-blur-sm p-4">
+        <div class="modal-content bg-white w-full max-w-lg border border-gray-200 shadow-none">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-neutral-900" id="modalTitle">新增項目</h3>
+                <button onclick="app.closeModal()" class="text-gray-400 hover:text-red-500 transition-colors">
+                    <i class="ph ph-x text-2xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                <input type="hidden" id="itemId">
+                
+                <div class="grid grid-cols-1 gap-6">
+                    <!-- Name & Enabled -->
+                    <div class="flex gap-4 items-end">
+                        <div class="flex-1">
+                            <label class="block text-xs font-mono text-gray-500 uppercase mb-1">項目名稱</label>
+                            <input type="text" id="itemName" class="input-precision" placeholder="例如：房租">
+                        </div>
+                        <div class="flex items-center gap-2 pb-2">
+                             <input type="checkbox" id="itemEnabled" class="accent-brand-500 w-4 h-4" checked>
+                             <label for="itemEnabled" class="text-sm cursor-pointer select-none">啟用</label>
+                        </div>
+                    </div>
+
+                    <!-- Type & Amount -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-mono text-gray-500 uppercase mb-1">類型</label>
+                            <select id="itemType" class="input-precision bg-transparent">
+                                <option value="income">收入 (+)</option>
+                                <option value="expense" selected>支出 (-)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-mono text-gray-500 uppercase mb-1">金額</label>
+                            <input type="number" id="itemAmount" class="input-precision font-mono" placeholder="0">
+                        </div>
+                    </div>
+
+                    <!-- Recurrence -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-mono text-gray-500 uppercase mb-1">週期</label>
+                            <select id="itemRecurrence" class="input-precision bg-transparent" onchange="app.toggleCustomInterval()">
+                                <option value="monthly">每月</option>
+                                <option value="once">單次</option>
+                                <option value="quarterly">每季 (3個月)</option>
+                                <option value="yearly">每年</option>
+                                <option value="custom">自訂</option>
+                            </select>
+                        </div>
+                        <div id="customIntervalGroup" class="hidden">
+                            <label class="block text-xs font-mono text-gray-500 uppercase mb-1">每 N 個月</label>
+                            <input type="number" id="itemCustomInterval" class="input-precision font-mono" value="2" min="1">
+                        </div>
+                    </div>
+
+                    <!-- Timeline -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-mono text-gray-500 uppercase mb-1">生效月份</label>
+                            <input type="month" id="itemStartMonth" class="input-precision font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-mono text-gray-500 uppercase mb-1">結束月份 (可空)</label>
+                            <input type="month" id="itemEndMonth" class="input-precision font-mono">
+                        </div>
+                    </div>
+
+                    <!-- Tags & Note -->
+                    <div>
+                        <label class="block text-xs font-mono text-gray-500 uppercase mb-1">標籤 (逗號分隔)</label>
+                        <input type="text" id="itemTags" class="input-precision" placeholder="固定支出, 房租">
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="p-6 border-t border-gray-200 bg-gray-50 flex justify-between">
+                <button type="button" onclick="app.deleteItem()" id="btnDelete" class="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-1 hidden">
+                    <i class="ph ph-trash"></i> 刪除
+                </button>
+                <div class="flex gap-3 ml-auto">
+                    <button onclick="app.closeModal()" class="btn-precision text-neutral-600 border-gray-300 hover:bg-gray-100 hover:text-neutral-900">取消</button>
+                    <button onclick="app.saveItem()" class="btn-precision btn-precision-primary">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        class CashflowApp {
+            constructor() {
+                // Default State
+                this.config = {
+                    startCash: 100000,
+                    startMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
+                    months: 12
+                };
+                
+                // Initial Example Data
+                this.items = [
+                    { id: '1', name: '薪資收入', type: 'income', amount: 65000, recurrence: 'monthly', startMonth: '2023-01', endMonth: '', enabled: true, tags: ['工作'], note: '' },
+                    { id: '2', name: '房租', type: 'expense', amount: 18000, recurrence: 'monthly', startMonth: '2023-01', endMonth: '', enabled: true, tags: ['居住', '固定'], note: '' },
+                    { id: '3', name: '人壽保險 (年繳)', type: 'expense', amount: 32000, recurrence: 'yearly', startMonth: '2024-05', endMonth: '', enabled: true, tags: ['保險'], note: '' },
+                    { id: '4', name: '東京旅遊', type: 'expense', amount: 50000, recurrence: 'once', startMonth: '2024-09', endMonth: '', enabled: true, tags: ['娛樂'], note: '' },
+                    { id: '5', name: 'Netflix/Spotify', type: 'expense', amount: 600, recurrence: 'monthly', startMonth: '2023-01', endMonth: '', enabled: true, tags: ['訂閱'], note: '' },
+                    { id: '6', name: '每季獎金', type: 'income', amount: 20000, recurrence: 'quarterly', startMonth: '2024-03', endMonth: '', enabled: true, tags: ['工作'], note: '' },
+                ];
+
+                this.editingId = null;
+                this.results = [];
+
+                this.init();
+            }
+
+            init() {
+                this.loadFromLocalStorage();
+                this.bindEvents();
+                
+                // Set initial date in input if not set
+                if (!document.getElementById('startMonth').value) {
+                    document.getElementById('startMonth').value = this.config.startMonth;
+                }
+                
+                this.calculateAndRender();
+            }
+
+            bindEvents() {
+                // Config Inputs
+                ['startCash', 'startMonth', 'predictionMonths'].forEach(id => {
+                    document.getElementById(id).addEventListener('change', (e) => {
+                        this.config[id] = e.target.value;
+                        if(id === 'startCash' || id === 'predictionMonths') this.config[id] = Number(e.target.value);
+                        this.saveToLocalStorage();
+                        this.calculateAndRender();
+                    });
+                });
+            }
+
+            // --- Core Logic: Calculation ---
+
+            calculateAndRender() {
+                this.results = this.calculateCashflow(this.config, this.items);
+                this.renderItems();
+                this.renderTable();
+                this.renderInsights();
+                this.drawChart();
+            }
+
+            calculateCashflow(config, items) {
+                const results = [];
+                let currentBalance = Number(config.startCash);
+                let currentYear = parseInt(config.startMonth.split('-')[0]);
+                let currentMonth = parseInt(config.startMonth.split('-')[1]);
+
+                for (let i = 0; i < config.months; i++) {
+                    const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+                    
+                    let income = 0;
+                    let expense = 0;
+                    const monthlyItems = [];
+
+                    items.forEach(item => {
+                        if (!item.enabled) return;
+
+                        // Check date range
+                        if (item.startMonth > monthStr) return;
+                        if (item.endMonth && item.endMonth < monthStr) return;
+
+                        let isOccurring = false;
+                        const startY = parseInt(item.startMonth.split('-')[0]);
+                        const startM = parseInt(item.startMonth.split('-')[1]);
+                        
+                        // Calculate months diff from item start
+                        const diffMonths = (currentYear - startY) * 12 + (currentMonth - startM);
+
+                        switch (item.recurrence) {
+                            case 'once':
+                                isOccurring = (monthStr === item.startMonth);
+                                break;
+                            case 'monthly':
+                                isOccurring = true;
+                                break;
+                            case 'quarterly':
+                                isOccurring = (diffMonths % 3 === 0);
+                                break;
+                            case 'yearly':
+                                isOccurring = (diffMonths % 12 === 0);
+                                break;
+                            case 'custom':
+                                const interval = item.customIntervalMonths || 1;
+                                isOccurring = (diffMonths % interval === 0);
+                                break;
+                        }
+
+                        if (isOccurring) {
+                            const amt = Number(item.amount);
+                            if (item.type === 'income') {
+                                income += amt;
+                            } else {
+                                expense += amt;
+                            }
+                            monthlyItems.push({ name: item.name, amount: amt, type: item.type });
+                        }
+                    });
+
+                    const net = income - expense;
+                    currentBalance += net;
+
+                    results.push({
+                        month: monthStr,
+                        income,
+                        expense,
+                        net,
+                        balance: currentBalance,
+                        details: monthlyItems
+                    });
+
+                    // Advance month
+                    currentMonth++;
+                    if (currentMonth > 12) {
+                        currentMonth = 1;
+                        currentYear++;
+                    }
+                }
+                return results;
+            }
+
+            // --- UI Rendering ---
+
+            formatMoney(n) {
+                return new Intl.NumberFormat('zh-TW', { style: 'decimal', maximumFractionDigits: 0 }).format(n);
+            }
+
+            renderItems() {
+                const container = document.getElementById('itemsList');
+                const filter = document.getElementById('filterInput').value.toLowerCase();
+                container.innerHTML = '';
+
+                this.items.forEach(item => {
+                    // Filter logic
+                    const textMatch = item.name.toLowerCase().includes(filter) || 
+                                      (item.tags && item.tags.join(',').toLowerCase().includes(filter));
+                    if (!textMatch) return;
+
+                    const div = document.createElement('div');
+                    div.className = `p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer group flex items-center justify-between ${!item.enabled ? 'opacity-50 grayscale' : ''}`;
+                    div.onclick = () => this.openModal(item.id);
+
+                    const isExp = item.type === 'expense';
+                    const colorClass = isExp ? 'text-neutral-900' : 'text-brand-500';
+                    const icon = isExp ? 'ph-arrow-circle-down-right' : 'ph-arrow-circle-up-right';
+                    
+                    let recurrenceText = '';
+                    switch(item.recurrence) {
+                        case 'monthly': recurrenceText = '每月'; break;
+                        case 'once': recurrenceText = '單次'; break;
+                        case 'yearly': recurrenceText = '每年'; break;
+                        case 'quarterly': recurrenceText = '每季'; break;
+                        case 'custom': recurrenceText = '自訂'; break;
+                    }
+
+                    div.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <div class="mt-1 text-gray-400">
+                                <i class="ph ${icon} text-lg"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-sm text-neutral-900">${item.name}</div>
+                                <div class="text-xs text-gray-500 font-mono mt-0.5">
+                                    <span class="bg-gray-100 px-1 py-0.5 rounded-none mr-1">${recurrenceText}</span>
+                                    ${item.startMonth} 起
+                                </div>
+                                <div class="mt-1 flex gap-1 flex-wrap">
+                                    ${item.tags.map(t => `<span class="text-[10px] uppercase border border-gray-200 px-1 text-gray-400">${t}</span>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-mono font-medium ${colorClass} ${isExp && item.enabled ? '' : ''}">
+                                ${isExp ? '-' : '+'}${this.formatMoney(item.amount)}
+                            </div>
+                            <button onclick="event.stopPropagation(); app.toggleItem('${item.id}')" class="mt-2 text-xs text-gray-400 hover:text-brand-500">
+                                <i class="ph ${item.enabled ? 'ph-toggle-right text-brand-500' : 'ph-toggle-left'} text-2xl"></i>
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+
+            renderTable() {
+                const tbody = document.getElementById('dataTableBody');
+                tbody.innerHTML = '';
+
+                this.results.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-blue-50/30 transition-colors border-b border-gray-100 group';
+                    
+                    const netClass = row.net >= 0 ? 'text-brand-500' : 'text-red-600';
+                    const balClass = row.balance < 0 ? 'text-red-600 font-bold' : 'text-neutral-900';
+
+                    tr.innerHTML = `
+                        <td class="p-3 text-neutral-900 font-medium">${row.month}</td>
+                        <td class="p-3 text-right text-gray-600">+${this.formatMoney(row.income)}</td>
+                        <td class="p-3 text-right text-gray-600">-${this.formatMoney(row.expense)}</td>
+                        <td class="p-3 text-right ${netClass}">${row.net > 0 ? '+' : ''}${this.formatMoney(row.net)}</td>
+                        <td class="p-3 text-right ${balClass}">${this.formatMoney(row.balance)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            renderInsights() {
+                if (this.results.length === 0) return;
+
+                // 1. Current Month Net
+                const r0 = this.results[0];
+                const netEl = document.getElementById('insightNetFlow');
+                netEl.innerText = (r0.net > 0 ? '+' : '') + this.formatMoney(r0.net);
+                netEl.className = `text-2xl font-bold font-mono tracking-tight ${r0.net >= 0 ? 'text-brand-500' : 'text-red-600'}`;
+
+                // 2. End Balance
+                const endBal = this.results[this.results.length - 1].balance;
+                const endEl = document.getElementById('insightEndBalance');
+                endEl.innerText = this.formatMoney(endBal);
+                endEl.className = `text-2xl font-bold font-mono tracking-tight ${endBal >= 0 ? 'text-brand-500' : 'text-red-600'}`;
+
+                // 3. Risk Analysis
+                const minBalance = Math.min(...this.results.map(r => r.balance));
+                const minMonth = this.results.find(r => r.balance === minBalance);
+                const negMonths = this.results.filter(r => r.balance < 0).length;
+                
+                // Find top expense items overall (simple sum)
+                const expenseTotals = {};
+                this.items.filter(i => i.type === 'expense' && i.enabled).forEach(item => {
+                    // Quick approximation for insight (better would be to sum from calculate loop)
+                    expenseTotals[item.name] = (expenseTotals[item.name] || 0) + item.amount * (item.recurrence === 'monthly' ? this.config.months : (item.recurrence === 'once' ? 1 : 4)); // Rough weight
+                });
+                const topExpense = Object.entries(expenseTotals).sort((a,b) => b[1] - a[1])[0];
+
+                let riskHtml = '';
+                if (minBalance < 0) {
+                    riskHtml += `<div class="text-red-600 font-bold mb-1"><i class="ph ph-warning"></i> 警告：現金將於 ${minMonth.month} 見底</div>`;
+                    riskHtml += `<div class="text-xs text-gray-500">赤字月份總數: ${negMonths} 個月</div>`;
+                } else {
+                    riskHtml += `<div class="text-brand-500 font-bold mb-1"><i class="ph ph-check-circle"></i> 財務健康</div>`;
+                    riskHtml += `<div class="text-xs text-gray-500">最低水位: ${this.formatMoney(minBalance)} (${minMonth.month})</div>`;
+                }
+                
+                if (topExpense) {
+                    riskHtml += `<div class="text-xs text-gray-500 mt-2 border-t border-gray-100 pt-2">最大支出源: <strong>${topExpense[0]}</strong></div>`;
+                }
+
+                document.getElementById('insightRisk').innerHTML = riskHtml;
+            }
+
+            drawChart() {
+                const container = document.getElementById('chartContainer');
+                const svg = document.getElementById('cashflowChart');
+                const tooltip = document.getElementById('chartTooltip');
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+
+                // Clear SVG
+                while (svg.firstChild) {
+                    svg.removeChild(svg.firstChild);
+                }
+
+                if (this.results.length < 2) return;
+
+                const padding = { top: 20, right: 10, bottom: 30, left: 50 };
+                const chartW = width - padding.left - padding.right;
+                const chartH = height - padding.top - padding.bottom;
+
+                // Scales
+                const balances = this.results.map(r => r.balance);
+                const maxVal = Math.max(...balances, 0);
+                const minVal = Math.min(...balances, 0);
+                const range = maxVal - minVal;
+                
+                // Avoid division by zero
+                const scaleY = val => {
+                    const normalized = (val - minVal) / (range === 0 ? 1 : range); // 0..1
+                    return padding.top + chartH - (normalized * chartH);
+                };
+                const scaleX = idx => padding.left + (idx / (this.results.length - 1)) * chartW;
+
+                // Zero line
+                const zeroY = scaleY(0);
+                const lineZero = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                lineZero.setAttribute('x1', padding.left);
+                lineZero.setAttribute('y1', zeroY);
+                lineZero.setAttribute('x2', width - padding.right);
+                lineZero.setAttribute('y2', zeroY);
+                lineZero.setAttribute('stroke', '#e5e7eb');
+                lineZero.setAttribute('stroke-width', '1');
+                if (minVal < 0 && maxVal > 0) svg.appendChild(lineZero);
+
+                // Create Path
+                let pathD = `M ${scaleX(0)} ${scaleY(balances[0])}`;
+                for (let i = 1; i < this.results.length; i++) {
+                    pathD += ` L ${scaleX(i)} ${scaleY(balances[i])}`;
+                }
+
+                // Draw Path (Main Line)
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', pathD);
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke', '#004ea2');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('stroke-linejoin', 'miter'); // Sharp corners
+                svg.appendChild(path);
+
+                // Draw Area (Gradient-ish via opacity)
+                const areaPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const areaD = pathD + ` L ${scaleX(this.results.length-1)} ${scaleY(minVal)} L ${scaleX(0)} ${scaleY(minVal)} Z`;
+                areaPath.setAttribute('d', areaD);
+                areaPath.setAttribute('fill', '#004ea2');
+                areaPath.setAttribute('fill-opacity', '0.05');
+                areaPath.setAttribute('stroke', 'none');
+                svg.appendChild(areaPath);
+
+                // Points & Interaction
+                this.results.forEach((r, i) => {
+                    const cx = scaleX(i);
+                    const cy = scaleY(r.balance);
+                    
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', cx);
+                    circle.setAttribute('cy', cy);
+                    circle.setAttribute('r', '3');
+                    circle.setAttribute('fill', '#fff');
+                    circle.setAttribute('stroke', '#004ea2');
+                    circle.setAttribute('stroke-width', '1');
+                    circle.setAttribute('class', 'hover:r-4 transition-all duration-200 cursor-pointer');
+                    
+                    // Hover Events
+                    circle.addEventListener('mouseenter', (e) => {
+                        circle.setAttribute('r', '5');
+                        circle.setAttribute('fill', '#004ea2');
+                        
+                        tooltip.style.display = 'block';
+                        tooltip.style.left = (e.offsetX + 10) + 'px';
+                        tooltip.style.top = (e.offsetY - 30) + 'px';
+                        tooltip.innerHTML = `${r.month}<br><span class="${r.balance < 0 ? 'text-red-400' : 'text-blue-300'}">$${this.formatMoney(r.balance)}</span>`;
+                    });
+                    
+                    circle.addEventListener('mouseleave', () => {
+                        circle.setAttribute('r', '3');
+                        circle.setAttribute('fill', '#fff');
+                        tooltip.style.display = 'none';
+                    });
+
+                    svg.appendChild(circle);
+                });
+            }
+
+            // --- Data Management ---
+
+            toggleItem(id) {
+                const item = this.items.find(i => i.id === id);
+                if (item) {
+                    item.enabled = !item.enabled;
+                    this.saveToLocalStorage();
+                    this.calculateAndRender();
+                }
+            }
+
+            openModal(id = null) {
+                this.editingId = id;
+                const modal = document.getElementById('itemModal');
+                const title = document.getElementById('modalTitle');
+                const btnDelete = document.getElementById('btnDelete');
+
+                if (id) {
+                    const item = this.items.find(i => i.id === id);
+                    title.innerText = '編輯項目';
+                    btnDelete.classList.remove('hidden');
+                    
+                    document.getElementById('itemName').value = item.name;
+                    document.getElementById('itemAmount').value = item.amount;
+                    document.getElementById('itemType').value = item.type;
+                    document.getElementById('itemRecurrence').value = item.recurrence;
+                    document.getElementById('itemStartMonth').value = item.startMonth;
+                    document.getElementById('itemEndMonth').value = item.endMonth || '';
+                    document.getElementById('itemTags').value = item.tags.join(', ');
+                    document.getElementById('itemEnabled').checked = item.enabled;
+                    
+                    if (item.recurrence === 'custom') {
+                        document.getElementById('customIntervalGroup').classList.remove('hidden');
+                        document.getElementById('itemCustomInterval').value = item.customIntervalMonths || 1;
+                    } else {
+                        document.getElementById('customIntervalGroup').classList.add('hidden');
+                    }
+                } else {
+                    title.innerText = '新增項目';
+                    btnDelete.classList.add('hidden');
+                    // Reset form
+                    document.getElementById('itemName').value = '';
+                    document.getElementById('itemAmount').value = '';
+                    document.getElementById('itemStartMonth').value = this.config.startMonth;
+                    document.getElementById('itemEndMonth').value = '';
+                    document.getElementById('itemTags').value = '';
+                    document.getElementById('customIntervalGroup').classList.add('hidden');
+                }
+
+                modal.classList.add('open');
+            }
+
+            closeModal() {
+                document.getElementById('itemModal').classList.remove('open');
+                this.editingId = null;
+            }
+
+            toggleCustomInterval() {
+                const val = document.getElementById('itemRecurrence').value;
+                const group = document.getElementById('customIntervalGroup');
+                if (val === 'custom') group.classList.remove('hidden');
+                else group.classList.add('hidden');
+            }
+
+            saveItem() {
+                const name = document.getElementById('itemName').value;
+                const amount = Number(document.getElementById('itemAmount').value);
+                const type = document.getElementById('itemType').value;
+                const recurrence = document.getElementById('itemRecurrence').value;
+                const startMonth = document.getElementById('itemStartMonth').value;
+                const endMonth = document.getElementById('itemEndMonth').value;
+                const tags = document.getElementById('itemTags').value.split(',').map(t => t.trim()).filter(t => t);
+                const enabled = document.getElementById('itemEnabled').checked;
+                const customInterval = Number(document.getElementById('itemCustomInterval').value);
+
+                if (!name || !amount || !startMonth) {
+                    alert('請填寫完整資訊');
+                    return;
+                }
+
+                const newItem = {
+                    id: this.editingId || Date.now().toString(),
+                    name,
+                    amount,
+                    type,
+                    recurrence,
+                    startMonth,
+                    endMonth,
+                    tags,
+                    enabled,
+                    customIntervalMonths: recurrence === 'custom' ? customInterval : null,
+                    note: ''
+                };
+
+                if (this.editingId) {
+                    const idx = this.items.findIndex(i => i.id === this.editingId);
+                    this.items[idx] = newItem;
+                } else {
+                    this.items.push(newItem);
+                }
+
+                this.saveToLocalStorage();
+                this.calculateAndRender();
+                this.closeModal();
+            }
+
+            deleteItem() {
+                if (confirm('確定要刪除此項目嗎？')) {
+                    this.items = this.items.filter(i => i.id !== this.editingId);
+                    this.saveToLocalStorage();
+                    this.calculateAndRender();
+                    this.closeModal();
+                }
+            }
+
+            // --- Persistence ---
+
+            saveToLocalStorage() {
+                const data = {
+                    config: this.config,
+                    items: this.items
+                };
+                localStorage.setItem('precisionCashflowData', JSON.stringify(data));
+            }
+
+            loadFromLocalStorage() {
+                const raw = localStorage.getItem('precisionCashflowData');
+                if (raw) {
+                    try {
+                        const data = JSON.parse(raw);
+                        this.config = { ...this.config, ...data.config };
+                        // Ensure IDs exist for legacy data
+                        this.items = (data.items || []).map(i => ({...i, id: i.id || Date.now().toString() + Math.random()}));
+                        
+                        // Update UI inputs
+                        document.getElementById('startCash').value = this.config.startCash;
+                        document.getElementById('startMonth').value = this.config.startMonth;
+                        document.getElementById('predictionMonths').value = this.config.predictionMonths;
+
+                    } catch (e) {
+                        console.error('Data load error', e);
+                    }
+                }
+            }
+
+            exportData() {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({config: this.config, items: this.items}, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "cashflow_model.json");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            }
+
+            importData(input) {
+                const file = input.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (data.config && data.items) {
+                            this.config = data.config;
+                            this.items = data.items;
+                            this.saveToLocalStorage();
+                            
+                            // Refresh inputs
+                            document.getElementById('startCash').value = this.config.startCash;
+                            document.getElementById('startMonth').value = this.config.startMonth;
+                            document.getElementById('predictionMonths').value = this.config.predictionMonths;
+
+                            this.calculateAndRender();
+                            alert('匯入成功');
+                        } else {
+                            alert('格式錯誤');
+                        }
+                    } catch (err) {
+                        alert('檔案解析失敗');
+                    }
+                };
+                reader.readAsText(file);
+                input.value = ''; // reset
+            }
+        }
+
+        // Initialize
+        const app = new CashflowApp();
+    </script>
+</body>
+</html>
+
+
