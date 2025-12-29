@@ -141,6 +141,17 @@
             transform: translateY(0);
             opacity: 1;
         }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #9ca3af;
+            text-align: center;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -212,7 +223,7 @@
                 </div>
 
                 <!-- Items Container -->
-                <div class="overflow-y-auto flex-1 p-0" id="itemsList">
+                <div class="overflow-y-auto flex-1 p-0 relative" id="itemsList">
                     <!-- Items injected by JS -->
                 </div>
             </section>
@@ -395,15 +406,8 @@
                     months: 12
                 };
                 
-                // Initial Example Data
-                this.items = [
-                    { id: '1', name: '薪資收入', type: 'income', amount: 65000, recurrence: 'monthly', startMonth: '2023-01', endMonth: '', enabled: true, tags: ['工作'], note: '' },
-                    { id: '2', name: '房租', type: 'expense', amount: 18000, recurrence: 'monthly', startMonth: '2023-01', endMonth: '', enabled: true, tags: ['居住', '固定'], note: '' },
-                    { id: '3', name: '人壽保險 (年繳)', type: 'expense', amount: 32000, recurrence: 'yearly', startMonth: '2024-05', endMonth: '', enabled: true, tags: ['保險'], note: '' },
-                    { id: '4', name: '東京旅遊', type: 'expense', amount: 50000, recurrence: 'once', startMonth: '2024-09', endMonth: '', enabled: true, tags: ['娛樂'], note: '' },
-                    { id: '5', name: 'Netflix/Spotify', type: 'expense', amount: 600, recurrence: 'monthly', startMonth: '2023-01', endMonth: '', enabled: true, tags: ['訂閱'], note: '' },
-                    { id: '6', name: '每季獎金', type: 'income', amount: 20000, recurrence: 'quarterly', startMonth: '2024-03', endMonth: '', enabled: true, tags: ['工作'], note: '' },
-                ];
+                // Initial Example Data - CLEARED
+                this.items = [];
 
                 this.editingId = null;
                 this.results = [];
@@ -534,6 +538,18 @@
                 const container = document.getElementById('itemsList');
                 const filter = document.getElementById('filterInput').value.toLowerCase();
                 container.innerHTML = '';
+
+                // Empty State
+                if (this.items.length === 0) {
+                     container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="ph ph-plus-circle text-4xl mb-2 text-gray-300"></i>
+                            <p class="text-sm">尚無項目</p>
+                            <p class="text-xs text-gray-400">點擊右上方新增按鈕開始</p>
+                        </div>
+                     `;
+                     return;
+                }
 
                 this.items.forEach(item => {
                     // Filter logic
